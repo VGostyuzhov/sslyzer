@@ -1,5 +1,9 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
+import os
+import sys
+import argparse
+
 from sslyze.server_connectivity import ServerConnectivityInfo, ServerConnectivityError
 from sslyze.synchronous_scanner import SynchronousScanner
 from sslyze.concurrent_scanner import ConcurrentScanner, PluginRaisedExceptionScanResult
@@ -16,9 +20,6 @@ from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
 
 from pprint import pprint
-
-import os
-import sys
 
 def get_RC4_ciphers(server):
     rc4_ciphers = []
@@ -154,7 +155,7 @@ def scan_server(hostname):
     server['vulners'] = vulners
     return server
 
-def make_report(servers):
+def make_report(servers, filename):
     try:
         wb = Workbook()
     except Exception, error:
@@ -190,15 +191,32 @@ def make_report(servers):
         row += 1
     try:
         wb.remove_sheet(wb.get_sheet_by_name('Sheet'))
-        wb.save('ssl_report.xlsx')
+        wb.save(filename)
     except Exception, error:
         raise error
 
 if __name__ == '__main__':
-    #hostnames = ['sberbank.ru', 'ucbreport.ru', 'www.sberbank.hr']
-    hostnames = ['sberbank.ru']
+    parser = argparse.ArgumentParser(description='Test multiple hosts for SSL vulnerabilities and misconfigurations using sslyze library')
+    parser.add_argument('-f', '--file', dest='input_file', help='File containing input hostnames', metavar='FILENAME')
+    parser.add_argument('-x', '--xlsx', dest='xlsx_file', help='Save report to .xlsx file', metavar='FILENAME')
+    parser.add_argument('hostname', nargs='?', help='Single hostname to scan')
+    args = parser.parse_args()
+
+    hostnames = []
+    if args.input_file:
+        with open(args.input_file, 'rb') as input_file:
+            hostnames = [h.strip() for h in input_file.readlines()]
+    elif args.hostname:
+        hostnames.append(args.hostname)
+    else:
+        parser.print_help()
+        sys.exit(0)
+
     servers = []
     for hostname in hostnames:
         servers.append(scan_server(hostname))
-    pprint(servers)
-    make_report(servers)
+    if args.xlsx_file:
+        make_report(servers, args.xlsx_file)
+    else:
+        pprint(servers)
+
