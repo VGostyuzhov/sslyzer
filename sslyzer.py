@@ -88,7 +88,6 @@ def scan_server(hostname):
     server = {'hostname': hostname, 'cipher_suites': {}, 'weak_ciphers': {}, 'cert': {}}
     vulners = {'heartbleed': None, 'crime': None, 'downgrade': None}
     # Setup the server to scan and ensure it is online/reachable
-    print(colored('Processing host {0}{1}{2}'.format(BOLD, hostname, ENDBOLD), 'cyan'))
     sys.stdout.write('Testing connectivity: ')
     #Python buffer strings before printing to stdout. Let's fush it to screen before process next command.
     sys.stdout.flush()
@@ -98,8 +97,8 @@ def scan_server(hostname):
         server_info.test_connectivity_to_server()
         sys.stdout.write(colored(BOLD + 'OK!\n' + ENDBOLD, 'green'))
     except ServerConnectivityError as e:
-        #raise ConnectionError('Error when connecting to {}: {}'.format(hostname, e.error_msg))
-        raise 
+        sys.stdout.write(colored(BOLD + 'Error when connecting to {}: {}\n\n'.format(hostname, e.error_msg) + ENDBOLD, 'red'))
+        return {'error': e.error_msg}
 
     sys.stdout.write('Getting test results: ')
     sys.stdout.flush()
@@ -121,8 +120,8 @@ def scan_server(hostname):
     for scan_result in concurrent_scanner.get_results():
         #print('\nReceived scan result for {} on host {}'.format(scan_result.scan_command.__class__.__name__, scan_result.server_info.hostname))
         if isinstance(scan_result, PluginRaisedExceptionScanResult):
-            #raise RuntimeError('Scan command failed: {}'.format(scan_result.as_text()))
-            return None
+            sys.stdout.write(colored('{}Scan command failed: {}{}\n'.format(BOLD, scan_result.as_text(), ENDBOLD)))
+            return {'error': scan_result.as_text()}
 
         commands = {'sslv20': Sslv20ScanCommand, 'sslv30': Sslv30ScanCommand, 'tlsv10': Tlsv10ScanCommand, 'tlsv11': Tlsv11ScanCommand, 'tlsv12': Tlsv12ScanCommand}
         for protocol, command in commands.iteritems():
@@ -168,9 +167,7 @@ def scan_server(hostname):
                 server['cert']['self_signed'] = False
             server['cert']['trusted'] = scan_result.path_validation_result_list[0].is_certificate_trusted
 
-
     server['weak_ciphers'] = get_weak_ciphers(server)
-
     vulners['poodle'] = server['sslv30']
     vulners['drown'] = server['sslv20']
     vulners['rc4'] = bool(len(server['weak_ciphers']['rc4']))
@@ -200,7 +197,7 @@ def make_report(servers, filename):
         sheet.cell(column=value, row=1).style = styles['Header']
     row = 2
     for server in servers:
-        if hostname in server:
+        if 'hostname' in server:
             sheet.cell(column=1, row=row, value=server['hostname'])
             sheet.cell(column=2, row=row, value=str(server['sslv20']))
             sheet.cell(column=3, row=row, value=str(server['sslv30']))
@@ -251,16 +248,22 @@ if __name__ == '__main__':
         sys.exit(0)
 
     servers = []
+    error_servers = []
+    i = 1
     for hostname in hostnames:
-        try:
-            servers.append(scan_server(hostname))
-            sys.stdout.write(colored(BOLD + 'OK!\n\n'.format(hostname) + ENDBOLD, 'green'))
-        except ServerConnectivityError as e:
-            sys.stdout.write(colored(BOLD + 'Error when connecting to {}: {}\n\n'.format(hostname, e.error_msg) + ENDBOLD, 'red'))
+        print(colored('Host {3} of {4}: {0}{1}{2}'.format(BOLD, hostname, ENDBOLD, i, len(hostnames)), 'cyan'))
+        i += 1
+        server = scan_server(hostname)
+        if 'error' in server:
+            error_servers.append({'hostname': hostname, 'error': server['error']})
             continue
+        else:
+            servers.append(server)
+            sys.stdout.write(colored(BOLD + 'OK!\n\n'.format(hostname) + ENDBOLD, 'green'))
     
     if args.xlsx_file:
         make_report(servers, args.xlsx_file)
     else:
         pprint(servers)
+        pprint(error_servers)
 
