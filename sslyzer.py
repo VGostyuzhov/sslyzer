@@ -1,10 +1,13 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
+#Import standard libraries
 import os
 import sys
 import argparse
 import json
+from pprint import pprint
 
+#Import sslyze Classes
 from sslyze.server_connectivity import ServerConnectivityInfo, ServerConnectivityError
 from sslyze.synchronous_scanner import SynchronousScanner
 from sslyze.concurrent_scanner import ConcurrentScanner, PluginRaisedExceptionScanResult
@@ -17,11 +20,17 @@ from sslyze.plugins.session_renegotiation_plugin import SessionRenegotiationScan
 from sslyze.plugins.certificate_info_plugin import CertificateInfoScanCommand
 from sslyze.plugins.utils.certificate_utils import CertificateUtils
 
+#Import Python packages
+from termcolor import colored
 from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
+
+#Import custom modules
 from styles import styles
 
-from pprint import pprint
+BOLD = '\033[1m'
+ENDBOLD = '\033[0m'
+
 
 class ConnectionError(Exception):
     pass
@@ -79,14 +88,21 @@ def scan_server(hostname):
     server = {'hostname': hostname, 'cipher_suites': {}, 'weak_ciphers': {}, 'cert': {}}
     vulners = {'heartbleed': None, 'crime': None, 'downgrade': None}
     # Setup the server to scan and ensure it is online/reachable
+    print(colored('Processing host {0}{1}{2}'.format(BOLD, hostname, ENDBOLD), 'cyan'))
+    sys.stdout.write('Testing connectivity: ')
+    #Python buffer strings before printing to stdout. Let's fush it to screen before process next command.
+    sys.stdout.flush()
+
     try:
         server_info = ServerConnectivityInfo(hostname)
         server_info.test_connectivity_to_server()
-        print('Connection to {} is OK!'.format(hostname))
+        sys.stdout.write(colored(BOLD + 'OK!\n' + ENDBOLD, 'green'))
     except ServerConnectivityError as e:
         #raise ConnectionError('Error when connecting to {}: {}'.format(hostname, e.error_msg))
         raise 
 
+    sys.stdout.write('Getting test results: ')
+    sys.stdout.flush()
     
     concurrent_scanner = ConcurrentScanner(network_retries=3, network_timeout=10)
 
@@ -101,8 +117,6 @@ def scan_server(hostname):
     concurrent_scanner.queue_scan_command(server_info, OpenSslCcsInjectionScanCommand())
     concurrent_scanner.queue_scan_command(server_info, SessionRenegotiationScanCommand())
     concurrent_scanner.queue_scan_command(server_info, CertificateInfoScanCommand())
-
-    print('Processing results for {}...\n'.format(hostname))
 
     for scan_result in concurrent_scanner.get_results():
         #print('\nReceived scan result for {} on host {}'.format(scan_result.scan_command.__class__.__name__, scan_result.server_info.hostname))
@@ -186,27 +200,28 @@ def make_report(servers, filename):
         sheet.cell(column=value, row=1).style = styles['Header']
     row = 2
     for server in servers:
-        sheet.cell(column=1, row=row, value=server['hostname'])
-        sheet.cell(column=2, row=row, value=str(server['sslv20']))
-        sheet.cell(column=3, row=row, value=str(server['sslv30']))
-        sheet.cell(column=4, row=row, value=str(server['tlsv10']))
-        sheet.cell(column=5, row=row, value=str(server['tlsv11']))
-        sheet.cell(column=6, row=row, value=str(server['tlsv12']))
-        sheet.cell(column=7, row=row, value=str(server['vulners']['heartbleed']))
-        sheet.cell(column=8, row=row, value=str(server['vulners']['crime']))
-        sheet.cell(column=9, row=row, value=str(server['vulners']['downgrade']))
-        sheet.cell(column=10, row=row, value=str(server['vulners']['poodle']))
-        sheet.cell(column=11, row=row, value=str(server['vulners']['rc4']))
-        sheet.cell(column=12, row=row, value=str(server['vulners']['beast']))
-        sheet.cell(column=13, row=row, value=str(server['vulners']['ccs_injection']))
-        sheet.cell(column=14, row=row, value=str(server['vulners']['drown']))
-        sheet.cell(column=15, row=row, value=str(server['vulners']['freak']))
-        sheet.cell(column=16, row=row, value=str(server['vulners']['logjam']))
-        sheet.cell(column=17, row=row, value=str(server['cert']['trusted']))
-        sheet.cell(column=18, row=row, value=str(server['cert']['self_signed']))
-        sheet.cell(column=19, row=row, value=str(server['cert']['not_valid_after']))
-        sheet.cell(column=20, row=row, value=str(server['cert']['matches_hostname']))
-        row += 1
+        if hostname in server:
+            sheet.cell(column=1, row=row, value=server['hostname'])
+            sheet.cell(column=2, row=row, value=str(server['sslv20']))
+            sheet.cell(column=3, row=row, value=str(server['sslv30']))
+            sheet.cell(column=4, row=row, value=str(server['tlsv10']))
+            sheet.cell(column=5, row=row, value=str(server['tlsv11']))
+            sheet.cell(column=6, row=row, value=str(server['tlsv12']))
+            sheet.cell(column=7, row=row, value=str(server['vulners']['heartbleed']))
+            sheet.cell(column=8, row=row, value=str(server['vulners']['crime']))
+            sheet.cell(column=9, row=row, value=str(server['vulners']['downgrade']))
+            sheet.cell(column=10, row=row, value=str(server['vulners']['poodle']))
+            sheet.cell(column=11, row=row, value=str(server['vulners']['rc4']))
+            sheet.cell(column=12, row=row, value=str(server['vulners']['beast']))
+            sheet.cell(column=13, row=row, value=str(server['vulners']['ccs_injection']))
+            sheet.cell(column=14, row=row, value=str(server['vulners']['drown']))
+            sheet.cell(column=15, row=row, value=str(server['vulners']['freak']))
+            sheet.cell(column=16, row=row, value=str(server['vulners']['logjam']))
+            sheet.cell(column=17, row=row, value=str(server['cert']['trusted']))
+            sheet.cell(column=18, row=row, value=str(server['cert']['self_signed']))
+            sheet.cell(column=19, row=row, value=str(server['cert']['not_valid_after']))
+            sheet.cell(column=20, row=row, value=str(server['cert']['matches_hostname']))
+            row += 1
 
     width_dict = {'A': 15, 'B': 7, 'C': 7, 'D': 7, 'E': 7, 'F': 7, 'G': 10}
     for key, value in width_dict.iteritems():
@@ -238,12 +253,12 @@ if __name__ == '__main__':
     servers = []
     for hostname in hostnames:
         try:
-            if scan_server(hostname):
-                servers.append(scan_server(hostname))
+            servers.append(scan_server(hostname))
+            sys.stdout.write(colored(BOLD + 'OK!\n\n'.format(hostname) + ENDBOLD, 'green'))
         except ServerConnectivityError as e:
-            print('Error when connecting to {}: {}'.format(hostname, e.error_msg))
+            sys.stdout.write(colored(BOLD + 'Error when connecting to {}: {}\n\n'.format(hostname, e.error_msg) + ENDBOLD, 'red'))
             continue
-
+    
     if args.xlsx_file:
         make_report(servers, args.xlsx_file)
     else:
