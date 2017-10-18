@@ -8,17 +8,18 @@ import json
 from pprint import pprint
 
 #Import sslyze Classes
-from sslyze.server_connectivity import ServerConnectivityInfo, ServerConnectivityError
-from sslyze.synchronous_scanner import SynchronousScanner
-from sslyze.concurrent_scanner import ConcurrentScanner, PluginRaisedExceptionScanResult
-from sslyze.plugins.openssl_cipher_suites_plugin import Sslv20ScanCommand, Sslv30ScanCommand, Tlsv10ScanCommand, Tlsv11ScanCommand, Tlsv12ScanCommand
-from sslyze.plugins.heartbleed_plugin import HeartbleedScanCommand
-from sslyze.plugins.compression_plugin import CompressionScanCommand
-from sslyze.plugins.fallback_scsv_plugin import FallbackScsvScanCommand
-from sslyze.plugins.openssl_ccs_injection_plugin import OpenSslCcsInjectionScanCommand
-from sslyze.plugins.session_renegotiation_plugin import SessionRenegotiationScanCommand
-from sslyze.plugins.certificate_info_plugin import CertificateInfoScanCommand
-from sslyze.plugins.utils.certificate_utils import CertificateUtils
+from sslyze.server_connectivity                         import ServerConnectivityInfo, ServerConnectivityError
+from sslyze.synchronous_scanner                         import SynchronousScanner
+from sslyze.concurrent_scanner                          import ConcurrentScanner, PluginRaisedExceptionScanResult
+from sslyze.plugins.openssl_cipher_suites_plugin        import Sslv20ScanCommand, Sslv30ScanCommand, Tlsv10ScanCommand, Tlsv11ScanCommand, Tlsv12ScanCommand
+from sslyze.plugins.heartbleed_plugin                   import HeartbleedScanCommand
+from sslyze.plugins.compression_plugin                  import CompressionScanCommand
+from sslyze.plugins.fallback_scsv_plugin                import FallbackScsvScanCommand
+from sslyze.plugins.openssl_ccs_injection_plugin        import OpenSslCcsInjectionScanCommand
+from sslyze.plugins.session_renegotiation_plugin        import SessionRenegotiationScanCommand
+from sslyze.plugins.http_headers_plugin                 import HttpHeadersScanCommand
+from sslyze.plugins.certificate_info_plugin             import CertificateInfoScanCommand
+from sslyze.plugins.utils.certificate_utils             import CertificateUtils
 
 #Import Python packages
 from termcolor import colored
@@ -41,6 +42,12 @@ def get_weak_ciphers(server):
     anon_ciphers = []
     weak_hash_ciphers = []
     dh_export_ciphers = []
+    common_primes_ciphers = []
+    with open('common_primes.json', 'rb') as cp_file:
+        lines = [l.strip() for l in cp_file.readlines()]
+        json_primes = [json.loads(j) for j in lines]
+        common_primes = [p['prime'].lower() for p in json_primes]
+
     for protocol, ciphers in server['cipher_suites'].iteritems():
         for cipher in ciphers:
             cipher = cipher['cipher']
@@ -56,7 +63,11 @@ def get_weak_ciphers(server):
                 if cipher['dh_info']['Type'] == 'DH' and int(cipher['dh_info']['GroupSize']) <= 1024:
                     if cipher not in dh_export_ciphers:
                         dh_export_ciphers.append(cipher)
-    return {'rc4': rc4_ciphers, 'des': des_ciphers, 'dh_export': dh_export_ciphers, 'weak_hash': weak_hash_ciphers}
+                prime = cipher['dh_info']['prime']
+                print prime
+                if prime in common_primes:
+                    common_primes_ciphers.appned(cipher)
+    return {'rc4': rc4_ciphers, 'des': des_ciphers, 'dh_export': dh_export_ciphers, 'weak_hash': weak_hash_ciphers, 'anon_ciphers': anon_ciphers, 'common_primes_ciphers': common_primes_ciphers}
 
 def check_Beast(server):
     protocols = {key: server['cipher_suites'][key] for key in ['sslv30', 'tlsv10']}
@@ -116,6 +127,7 @@ def scan_server(hostname):
     concurrent_scanner.queue_scan_command(server_info, OpenSslCcsInjectionScanCommand())
     concurrent_scanner.queue_scan_command(server_info, SessionRenegotiationScanCommand())
     concurrent_scanner.queue_scan_command(server_info, CertificateInfoScanCommand())
+    concurrent_scanner.queue_scan_command(server_info, HttpHeadersScanCommand())
 
     for scan_result in concurrent_scanner.get_results():
         #print('\nReceived scan result for {} on host {}'.format(scan_result.scan_command.__class__.__name__, scan_result.server_info.hostname))
@@ -131,9 +143,9 @@ def scan_server(hostname):
                     c = {'cipher': cipher.name}
                     if cipher.dh_info is not None:
                         if cipher.dh_info['Type'] == 'DH':
-                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize']}
+                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize', 'prime']}
                         elif cipher.dh_info['Type'] == 'ECDH':
-                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize']}
+                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize', 'Prime']}
                     server['cipher_suites'][protocol].append(c)
                 server[protocol] = bool(len(server['cipher_suites'][protocol]))
 
@@ -155,6 +167,10 @@ def scan_server(hostname):
             server['client_reneg'] = scan_result.accepts_client_renegotiation
             server['secure_reneg'] = scan_result.supports_secure_renegotiation
 
+        if isinstance(scan_result.scan_command, HttpHeadersScanCommand):
+            server['hsts_header'] = bool(scan_result.hsts_header)
+            server['hpkp_header'] = bool(scan_result.hpkp_header)
+
         if isinstance(scan_result.scan_command, CertificateInfoScanCommand):
             server['cert']['matches_hostname'] = scan_result.certificate_matches_hostname
             cert = scan_result.certificate_chain[0]
@@ -166,6 +182,8 @@ def scan_server(hostname):
             else:
                 server['cert']['self_signed'] = False
             server['cert']['trusted'] = scan_result.path_validation_result_list[0].is_certificate_trusted
+            server['cert']['sign_hash_algorithm'] = cert.signature_hash_algorithm.name
+            server['cert']['weak_hash_algorithm'] = bool(server['cert']['sign_hash_algorithm'] == 'sha1')
 
     server['weak_ciphers'] = get_weak_ciphers(server)
     vulners['poodle'] = server['sslv30']
@@ -264,6 +282,6 @@ if __name__ == '__main__':
     if args.xlsx_file:
         make_report(servers, args.xlsx_file)
     else:
-        pprint(servers)
+        #pprint(servers)
         pprint(error_servers)
 
