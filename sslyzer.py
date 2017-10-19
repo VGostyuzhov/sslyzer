@@ -1,13 +1,10 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
-#Import standard libraries
 import os
 import sys
 import argparse
 import json
 from pprint import pprint
-
-#Import Python packages
 from termcolor import colored
 
 from modules import scan, report
@@ -18,43 +15,36 @@ ENDBOLD = '\033[0m'
 class ConnectionError(Exception):
     pass
 
-def get_weak_ciphers(server):
-    rc4_ciphers = []
-    des_ciphers = []
-    anon_ciphers = []
-    weak_hash_ciphers = []
-    dh_export_ciphers = []
-    common_primes_ciphers = []
-    #with open('common_primes.json', 'rb') as cp_file:
-    #    lines = [l.strip() for l in cp_file.readlines()]
-    #    json_primes = [json.loads(j) for j in lines]
-    #    common_primes = [p['prime'].lower() for p in json_primes]
+def analyze_ciphers(server):
+    weak_ciphers = {'rc4': [], 'DES': [], 'dh_export': [], 'weak_hash': [], 'anon': [], 'common_primes': []}
+    with open('data/common_primes.json', 'rb') as cp_file:
+        lines = [l.strip() for l in cp_file.readlines()]
+        json_primes = [json.loads(j) for j in lines]
+        common_primes = [p['prime'].lower() for p in json_primes]
 
     for protocol, ciphers in server['cipher_suites'].iteritems():
         for cipher in ciphers:
-            cipher = cipher['cipher']
-            if 'RC4' in cipher and cipher not in rc4_ciphers:
-                rc4_ciphers.append(cipher)
-            if (('MD5' or 'SHA-') in cipher or cipher.endswith('SHA')) and cipher not in weak_hash_ciphers:
-                weak_hash_ciphers.append(cipher)
-            if 'DES' in cipher and cipher not in des_ciphers:
-                des_ciphers.append(cipher)
-            if 'anon' in cipher and cipher not in anon_ciphers:
-                anon_ciphers.append(cipher)
+            if 'RC4' in cipher['name'] and cipher['name'] not in weak_ciphers['rc4']:
+                weak_ciphers['rc4'].append(cipher['name'])
+            if (('MD5' or 'SHA_') in cipher['name'] or cipher['name'].endswith('SHA')) and cipher['name'] not in weak_ciphers['weak_hash']:
+                weak_ciphers['weak_hash'].append(cipher['name'])
+            if 'DES' in cipher['name'] and cipher['name'] not in weak_ciphers['DES']:
+                weak_ciphers['DES'].append(cipher['name'])
+            if 'anon' in cipher['name'] and cipher['name'] not in weak_ciphers['anon']:
+                weak_ciphers['anon'].append(cipher['name'])
             if 'dh_info' in cipher:
-                if cipher['dh_info']['Type'] == 'DH' and int(cipher['dh_info']['GroupSize']) <= 1024:
-                    if cipher not in dh_export_ciphers:
-                        dh_export_ciphers.append(cipher)
-                print(cipher['dh_info']['prime'])
-                #if prime in common_primes:
-                #    common_primes_ciphers.appned(cipher)
-    return {'rc4': rc4_ciphers, 'des': des_ciphers, 'dh_export': dh_export_ciphers, 'weak_hash': weak_hash_ciphers, 'anon_ciphers': anon_ciphers, 'common_primes_ciphers': common_primes_ciphers}
+                if cipher['dh_info']['type'] == 'DH' and int(cipher['dh_info']['groupsize']) <= 1024:
+                    if cipher['name'] not in weak_ciphers['dh_export']:
+                        weak_ciphers['dh_export'].append(cipher['name'])
+                if cipher['dh_info']['prime'] in common_primes and cipher['name'] not in weak_ciphers['common_primes']:
+                    weak_ciphers['common_primes'].append(cipher['name'])
+    return weak_ciphers
 
 def check_Beast(server):
     protocols = {key: server['cipher_suites'][key] for key in ['sslv30', 'tlsv10']}
     for protocol, ciphers in protocols.iteritems():
         for cipher in ciphers:
-            if 'CBC' in cipher['cipher']:
+            if 'CBC' in cipher['name']:
                 return True
     return False
 
@@ -76,6 +66,7 @@ def check_vulners(server):
     server['vulners']['freak'] = check_Freak(server)
     server['vulners']['crime'] = bool(server['compression'])
     server['vulners']['downgrade'] = server['fallback_scsv']
+    server['vulners']['dh_common_primes'] = bool(len(server['weak_ciphers']['common_primes']))
     return server
 
 def parseArguments():
@@ -105,7 +96,7 @@ if __name__ == '__main__':
         print(colored('Host {3} of {4}: {0}{1}{2}'.format(BOLD, hostname, ENDBOLD, i, len(hostnames)), 'cyan'))
         i += 1
         server = scan.scan_server(hostname)
-        server['weak_ciphers'] = get_weak_ciphers(server)
+        server['weak_ciphers'] = analyze_ciphers(server)
         server = check_vulners(server)
         if 'error' in server:
             error_servers.append({'hostname': hostname, 'error': server['error']})

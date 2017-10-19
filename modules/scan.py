@@ -57,12 +57,11 @@ def scan_server(hostname):
             if isinstance(scan_result.scan_command, command):
                 server['cipher_suites'][protocol] = []
                 for cipher in scan_result.accepted_cipher_list:
-                    c = {'cipher': cipher.name}
+                    c = {'name': cipher.name}
                     if cipher.dh_info is not None:
-                        if cipher.dh_info['Type'] == 'DH':
-                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize', 'prime']}
-                        elif cipher.dh_info['Type'] == 'ECDH':
-                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize', 'Prime']}
+                        cipher_lower = {k.lower():v for k,v in cipher.dh_info.items()}
+                        c['dh_info'] = {key: cipher_lower[key] for key in ['type', 'groupsize', 'prime']}
+                        c['dh_info']['prime'] = c['dh_info']['prime'][4:]
                     server['cipher_suites'][protocol].append(c)
                 server[protocol] = bool(len(server['cipher_suites'][protocol]))
 
