@@ -24,10 +24,9 @@ ENDBOLD = '\033[0m'
 def scan_server(hostname):
     """Scan server for supported SSL cipher suites and vulnerabilities and
     return dict object"""
-    server = {'hostname': hostname, 'cipher_suites': {}, 'weak_ciphers': {}, 'cert': {}, 'vulners': {}}
-    # Setup the server to scan and ensure it is online/reachable
+
+    # Test connectivity
     sys.stdout.write('Testing connectivity: ')
-    #Python buffer strings before printing to stdout. Let's fush it to screen before process next command.
     sys.stdout.flush()
     try:
         server_info = ServerConnectivityInfo(hostname)
@@ -36,28 +35,30 @@ def scan_server(hostname):
     except ServerConnectivityError as e:
         sys.stdout.write(colored(BOLD + 'Error when connecting to {}: {}\n\n'.format(hostname, e.error_msg) + ENDBOLD, 'red'))
         return {'error': e.error_msg}
+    #Run scan commands
     sys.stdout.write('Getting test results: ')
     sys.stdout.flush()
-    
     concurrent_scanner = ConcurrentScanner(network_retries=3, network_timeout=10)
     scan_commands = [Sslv20ScanCommand(), Sslv30ScanCommand(), Tlsv10ScanCommand(), Tlsv11ScanCommand(), Tlsv12ScanCommand(),
             Tlsv12ScanCommand(), HeartbleedScanCommand(), CompressionScanCommand(), FallbackScsvScanCommand(), OpenSslCcsInjectionScanCommand(),
             SessionRenegotiationScanCommand(), CertificateInfoScanCommand(), HttpHeadersScanCommand()]
     for scan_command in scan_commands:
         concurrent_scanner.queue_scan_command(server_info, scan_command)
-
+    #Process scan results
+    server = {'hostname': hostname, 'cipher_suites': {}, 'weak_ciphers': {}, 'cert': {}, 'vulners': {}}
     for scan_result in concurrent_scanner.get_results():
-        #print('\nReceived scan result for {} on host {}'.format(scan_result.scan_command.__class__.__name__, scan_result.server_info.hostname))
         if isinstance(scan_result, PluginRaisedExceptionScanResult):
             sys.stdout.write(colored('{}Scan command failed: {}{}\n'.format(BOLD, scan_result.as_text(), ENDBOLD)))
             return {'error': scan_result.as_text()}
 
-        commands = {'sslv20': Sslv20ScanCommand, 'sslv30': Sslv30ScanCommand, 'tlsv10': Tlsv10ScanCommand, 'tlsv11': Tlsv11ScanCommand, 'tlsv12': Tlsv12ScanCommand}
+        commands = {'SSLlv2.0': Sslv20ScanCommand, 'SSLv3.0': Sslv30ScanCommand, 'TLSv1.0': Tlsv10ScanCommand, 'TLSv1.1': Tlsv11ScanCommand, 'TLSv1.2': Tlsv12ScanCommand}
         for protocol, command in commands.iteritems():
             if isinstance(scan_result.scan_command, command):
                 server['cipher_suites'][protocol] = []
                 for cipher in scan_result.accepted_cipher_list:
-                    c = {'name': cipher.name}
+                    cipher_name = cipher.name.replace('TLS_', '')
+                    cipher_name = cipher_name.replace('WITH_', '')
+                    c = {'name': cipher_name, 'key_size': cipher.key_size}
                     if cipher.dh_info is not None:
                         cipher_lower = {k.lower():v for k,v in cipher.dh_info.items()}
                         c['dh_info'] = {key: cipher_lower[key] for key in ['type', 'groupsize', 'prime']}
