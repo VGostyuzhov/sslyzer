@@ -10,7 +10,7 @@ from pprint import pprint
 #Import Python packages
 from termcolor import colored
 
-from lib import scan, report
+from modules import scan, report
 
 BOLD = '\033[1m'
 ENDBOLD = '\033[0m'
