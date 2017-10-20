@@ -60,9 +60,9 @@ def scan_server(hostname):
                     cipher_name = cipher_name.replace('WITH_', '')
                     c = {'name': cipher_name, 'key_size': cipher.key_size}
                     if cipher.dh_info is not None:
-                        cipher_lower = {k.lower():v for k,v in cipher.dh_info.items()}
-                        c['dh_info'] = {key: cipher_lower[key] for key in ['type', 'groupsize', 'prime']}
-                        c['dh_info']['prime'] = c['dh_info']['prime'][4:]
+                        c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize']}
+                        if cipher.dh_info['Type'] == 'DH':
+                            c['dh_info']['prime'] = cipher.dh_info['prime'][4:]
                     server['cipher_suites'][protocol].append(c)
                 server[protocol] = bool(len(server['cipher_suites'][protocol]))
 
