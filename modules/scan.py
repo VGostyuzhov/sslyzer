@@ -49,11 +49,12 @@ def scanServer(hostname, timeout):
         concurrent_scanner.queue_scan_command(server_info, scan_command)
     # Process scan results
     server = {'hostname': hostname, 
-              'cipher_suites': {}, 
-              'weak_ciphers': {}, 
+              'cipher_suites': {'SSLv2.0': [], 'SSLv3.0': [], 'TLSv1.0': [], 'TLSv1.1': [], 'TLSv1.2': []}, 
+              'weak_ciphers': None, 'insecure_ciphers': None,               
               'cert': {'trusted': None, 'mataches_hostname': None, 'not_valid_after': None,
                        'self_signed': None, 'sign_hash_algorithm': None, 'weak_hash_algorithm': None}, 
-              'vulners': {}
+              'vulners': {'poodle': None, 'crime': None, 'drown': None, 'beast': None, 'logjam': None, 'freak': None, 'downgrade': None},
+              'DH_params': {'DH_common_prime': None, 'DH_weak': None, 'DH_insecure': None}
               }
     for scan_result in concurrent_scanner.get_results():
         if isinstance(scan_result, PluginRaisedExceptionScanResult):
