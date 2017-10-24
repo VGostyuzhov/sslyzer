@@ -1,9 +1,8 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
-#Import standard libraries
+# Import standard libraries
 import sys
-
-#Import sslyze Classes
+# Import sslyze Classes
 from sslyze.server_connectivity                         import ServerConnectivityInfo, ServerConnectivityError
 from sslyze.synchronous_scanner                         import SynchronousScanner
 from sslyze.concurrent_scanner                          import ConcurrentScanner, PluginRaisedExceptionScanResult
@@ -16,15 +15,14 @@ from sslyze.plugins.session_renegotiation_plugin        import SessionRenegotiat
 from sslyze.plugins.http_headers_plugin                 import HttpHeadersScanCommand
 from sslyze.plugins.certificate_info_plugin             import CertificateInfoScanCommand
 from sslyze.plugins.utils.certificate_utils             import CertificateUtils
-
 from termcolor import colored
+
 BOLD = '\033[1m'
 ENDBOLD = '\033[0m'
 
-def scan_server(hostname):
-    """Scan server for supported SSL cipher suites and vulnerabilities and
-    return dict object"""
 
+def scanServer(hostname, timeout):
+    """Scan server for supported SSL cipher suites and vulnerabilities and return dict object"""
     # Test connectivity
     sys.stdout.write('Testing connectivity: ')
     sys.stdout.flush()
@@ -35,23 +33,36 @@ def scan_server(hostname):
     except ServerConnectivityError as e:
         sys.stdout.write(colored(BOLD + 'Error when connecting to {}: {}\n\n'.format(hostname, e.error_msg) + ENDBOLD, 'red'))
         return {'error': e.error_msg}
-    #Run scan commands
+    # Run scan commands
     sys.stdout.write('Getting test results: ')
     sys.stdout.flush()
-    concurrent_scanner = ConcurrentScanner(network_retries=3, network_timeout=10)
+    concurrent_scanner = ConcurrentScanner(network_retries=3, network_timeout=timeout)
     scan_commands = [Sslv20ScanCommand(), Sslv30ScanCommand(), Tlsv10ScanCommand(), Tlsv11ScanCommand(), Tlsv12ScanCommand(),
-            Tlsv12ScanCommand(), HeartbleedScanCommand(), CompressionScanCommand(), FallbackScsvScanCommand(), OpenSslCcsInjectionScanCommand(),
-            SessionRenegotiationScanCommand(), CertificateInfoScanCommand(), HttpHeadersScanCommand()]
+                     HeartbleedScanCommand(),
+                     CompressionScanCommand(),
+                     FallbackScsvScanCommand(),
+                     OpenSslCcsInjectionScanCommand(),
+                     SessionRenegotiationScanCommand(),
+                     CertificateInfoScanCommand(),
+                     HttpHeadersScanCommand()]
     for scan_command in scan_commands:
         concurrent_scanner.queue_scan_command(server_info, scan_command)
-    #Process scan results
-    server = {'hostname': hostname, 'cipher_suites': {}, 'weak_ciphers': {}, 'cert': {}, 'vulners': {}}
+    # Process scan results
+    server = {'hostname': hostname, 
+              'cipher_suites': {}, 
+              'weak_ciphers': {}, 
+              'cert': {'trusted': None, 'mataches_hostname': None, 'not_valid_after': None,
+                       'self_signed': None, 'sign_hash_algorithm': None, 'weak_hash_algorithm': None}, 
+              'vulners': {}
+              }
     for scan_result in concurrent_scanner.get_results():
         if isinstance(scan_result, PluginRaisedExceptionScanResult):
-            sys.stdout.write(colored('{}Scan command failed: {}{}\n'.format(BOLD, scan_result.as_text(), ENDBOLD)))
+            error_message = ''.join(scan_result.as_text())
+            sys.stdout.write(colored('{}Scan command failed: {}{}\n\n'.format(BOLD, error_message, ENDBOLD), 'red'))
             return {'error': scan_result.as_text()}
+            # continue
 
-        commands = {'SSLlv2.0': Sslv20ScanCommand, 'SSLv3.0': Sslv30ScanCommand, 'TLSv1.0': Tlsv10ScanCommand, 'TLSv1.1': Tlsv11ScanCommand, 'TLSv1.2': Tlsv12ScanCommand}
+        commands = {'SSLv2.0': Sslv20ScanCommand, 'SSLv3.0': Sslv30ScanCommand, 'TLSv1.0': Tlsv10ScanCommand, 'TLSv1.1': Tlsv11ScanCommand, 'TLSv1.2': Tlsv12ScanCommand}
         for protocol, command in commands.iteritems():
             if isinstance(scan_result.scan_command, command):
                 server['cipher_suites'][protocol] = []
@@ -71,10 +82,10 @@ def scan_server(hostname):
 
         if isinstance(scan_result.scan_command, CompressionScanCommand):
             server['compression'] = scan_result.compression_name
-            
+
         if isinstance(scan_result.scan_command, FallbackScsvScanCommand):
             server['fallback_scsv'] = scan_result.supports_fallback_scsv
-            
+
         if isinstance(scan_result.scan_command, OpenSslCcsInjectionScanCommand):
             server['vulners']['ccs_injection'] = scan_result.is_vulnerable_to_ccs_injection
 
@@ -98,5 +109,5 @@ def scan_server(hostname):
                 server['cert']['self_signed'] = False
             server['cert']['trusted'] = scan_result.path_validation_result_list[0].is_certificate_trusted
             server['cert']['sign_hash_algorithm'] = cert.signature_hash_algorithm.name
-            server['cert']['weak_hash_algorithm'] = bool(server['cert']['sign_hash_algorithm'] == 'sha1')     
+            server['cert']['weak_hash_algorithm'] = bool(server['cert']['sign_hash_algorithm'] == 'sha1')
     return server
