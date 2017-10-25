@@ -55,7 +55,7 @@ def excelReport(servers, filename):
         wb.add_named_style(value)
 
     sheet = wb.create_sheet('SSL')
-    headers = {'Domain': 1, 'SSLv2': 2, 'SSLv3': 3, 'TLSv1.0': 4, 'TLSv1.1': 5, 'TLSv1.2': 6,
+    headers = {'Server': 1, 'SSLv2': 2, 'SSLv3': 3, 'TLSv1.0': 4, 'TLSv1.1': 5, 'TLSv1.2': 6,
                'Heartbleed': 7, 'Crime': 8, 'Downgrade': 9, 'Poodle': 10 , 'RC4': 11, 'Beast': 12, 'CCS Injection': 13, 'Drown': 14, 'Freak': 15, 'Logjam': 16,
                'DH\nCommon Primes': 17, 'DH\nWeak': 18, 'DH\nInsecure': 19,
                'Forward\nSecrecy': 20, 'HSTS': 21, 'Secure\nRenegotiation': 22,
@@ -67,7 +67,8 @@ def excelReport(servers, filename):
     row = 2
     for server in servers:
         if 'hostname' in server:
-            sheet.cell(column=1, row=row, value=server['hostname'])
+            server_info = ':'.join([server['hostname'], server['ip_address'], server['port']])
+            sheet.cell(column=1, row=row, value=server_info)
             sheet.cell(column=2, row=row, value=str(server['SSLv2.0']))
             sheet.cell(column=3, row=row, value=str(server['SSLv3.0']))
             sheet.cell(column=4, row=row, value=str(server['TLSv1.0']))

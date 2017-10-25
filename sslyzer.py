@@ -13,7 +13,7 @@ from modules.styles import Colors
 
 COMMON_PRIMES_FILE = 'data/common_primes.txt'
 
-def analyze_ciphers(server, common_primes):
+def enrich_ciphers(server, common_primes):
     """ """
     for protocol, ciphers in server['cipher_suites'].iteritems():
         for cipher in ciphers:
@@ -37,6 +37,7 @@ def analyze_ciphers(server, common_primes):
                     cipher['DH_common_prime'] = bool(cipher['dh_info']['prime'] in common_primes)
                     cipher['DH_weak'] = bool(int(cipher['DH_GroupSize']) == 1024)
                     cipher['DH_insecure'] = bool(int(cipher['DH_GroupSize']) < 1024)
+    return server
 
 
 def check_Beast(server):
@@ -103,18 +104,18 @@ def sslyzer(hostnames, timeout=5):
     # Initialize lists for results and servers with errors
     servers = []
     error_servers = []
-    i = 1
-    for hostname in hostnames:
-        print(colored('Host {3} of {4}: {0}{1}{2}'.format(Colors.BOLD, hostname, Colors.ENDBOLD, i, len(hostnames)), 'cyan'))
-        i += 1
+    for index, hostname in enumerate(hostnames):
+        print(colored('Host {3} of {4}: {0}{1}{2}'.format(Colors.BOLD, hostname, Colors.ENDBOLD, index+1, len(hostnames)), 'cyan'))
+        # Run sslyze scan commands, get server dict
         server = scanServer(hostname, timeout)
         if 'error' in server:
             error_servers.append({'hostname': hostname, 'error': server['error']})
-            continue
+            # continue
         else:
-            analyze_ciphers(server, common_primes)
-            server = check_vulners(server)
-            servers.append(server)
+            # Enrich server's cipher suites with 
+            enriched_server = enrich_ciphers(server, common_primes)
+            vulners_server = check_vulners(enriched_server)
+            servers.append(vulners_server)
             sys.stdout.write(colored(Colors.BOLD + 'OK!\n\n'.format(hostname) + Colors.ENDBOLD, 'green'))
             if args.wide:
                 serverConsoleOutput(server)
@@ -142,6 +143,7 @@ if __name__ == '__main__':
     else:
         parser.print_help()
         sys.exit(0)
+    # Run all tests
     servers, error_servers = sslyzer(hostnames, timeout=7)
 
     if len(error_servers):
