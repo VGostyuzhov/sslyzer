@@ -6,7 +6,7 @@ from termcolor import colored
 
 def serverConsoleOutput(server):
     # print('Heartbleed: ' + colored((server['vulners']['heartbleed']), 'green'))
-    yes_no = {False: 'No', True: 'Yes'}
+    yes_no = {False: 'No', True: 'Yes', 'Error': 'Error'}
     for protocol, ciphers in server['cipher_suites'].iteritems():
         if len(ciphers):
             print(colored(protocol, 'cyan'))

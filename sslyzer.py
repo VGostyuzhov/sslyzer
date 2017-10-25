@@ -16,27 +16,30 @@ COMMON_PRIMES_FILE = 'data/common_primes.txt'
 def enrich_ciphers(server, common_primes):
     """ """
     for protocol, ciphers in server['cipher_suites'].iteritems():
-        for cipher in ciphers:
-            ci_name = cipher['name']
-            cipher['RC4'] = bool('RC4' in ci_name)
-            cipher['DES'] = bool('DES' in ci_name)
-            cipher['anon'] = bool('anon' in ci_name)
-            cipher['MD5'] = bool('MD5' in ci_name)
-            # SHA1
-            check_sha1 = 'SHA_' in ci_name or ci_name.endswith('SHA')
-            cipher['SHA1'] = bool(check_sha1)
-            cipher['PFS'] = bool('DHE' in ci_name)
-            # Set default 'False' or '--' for DH params, as not every cipher 'DH'.
-            # It will be overriden in case if cipher has 'dh_info' block.
-            cipher.update({'DH_export': False, 'DH_common_prime': False, 'DH_GroupSize': '--', 'DH_weak': False, 'DH_insecure': False})
-            # If cipher has 'DH' algorithm in cipher suite, let's analyze it's params.
-            if 'dh_info' in cipher:
-                if cipher['dh_info']['Type'] == 'DH':
-                    cipher['DH_GroupSize'] = cipher['dh_info']['GroupSize']
-                    cipher['DH_export'] = bool(int(cipher['DH_GroupSize']) <= 1024)
-                    cipher['DH_common_prime'] = bool(cipher['dh_info']['prime'] in common_primes)
-                    cipher['DH_weak'] = bool(int(cipher['DH_GroupSize']) == 1024)
-                    cipher['DH_insecure'] = bool(int(cipher['DH_GroupSize']) < 1024)
+        if 'Error' in protocol:
+            continue
+        else:
+            for cipher in ciphers:
+                ci_name = cipher['name']
+                cipher['RC4'] = bool('RC4' in ci_name)
+                cipher['DES'] = bool('DES' in ci_name)
+                cipher['anon'] = bool('anon' in ci_name)
+                cipher['MD5'] = bool('MD5' in ci_name)
+                # SHA1
+                check_sha1 = 'SHA_' in ci_name or ci_name.endswith('SHA')
+                cipher['SHA1'] = bool(check_sha1)
+                cipher['PFS'] = bool('DHE' in ci_name)
+                # Set default 'False' or '--' for DH params, as not every cipher 'DH'.
+                # It will be overriden in case if cipher has 'dh_info' block.
+                cipher.update({'DH_export': False, 'DH_common_prime': False, 'DH_GroupSize': '--', 'DH_weak': False, 'DH_insecure': False})
+                # If cipher has 'DH' algorithm in cipher suite, let's analyze it's params.
+                if 'dh_info' in cipher:
+                    if cipher['dh_info']['Type'] == 'DH':
+                        cipher['DH_GroupSize'] = cipher['dh_info']['GroupSize']
+                        cipher['DH_export'] = bool(int(cipher['DH_GroupSize']) <= 1024)
+                        cipher['DH_common_prime'] = bool(cipher['dh_info']['prime'] in common_primes)
+                        cipher['DH_weak'] = bool(int(cipher['DH_GroupSize']) == 1024)
+                        cipher['DH_insecure'] = bool(int(cipher['DH_GroupSize']) < 1024)
     return server
 
 
@@ -77,8 +80,17 @@ def check_vulners(server):
     server['vulners']['drown'] = server['SSLv2.0']
     server['vulners']['beast'] = check_Beast(server)
     server['vulners']['freak'] = check_Freak(server)
-    server['vulners']['crime'] = bool(server['compression'])
-    server['vulners']['downgrade'] = not server['fallback_scsv']
+
+    if server['compression'] == 'Error':
+        server['vulners']['crime'] = 'Error'
+    else:
+        server['vulners']['crime'] = bool(server['compression'])
+
+    if server['fallback_scsv'] == 'Error':
+        server['vulners']['downgrade'] = 'Error'
+    else:
+        server['vulners']['downgrade'] = not server['fallback_scsv']
+
     server['vulners']['RC4'] = getCiphersParam(server['cipher_suites'], 'RC4')
     server['vulners']['logjam'] = getCiphersParam(server['cipher_suites'], 'DH_export')
     server['DH_params'] = {}
@@ -144,11 +156,11 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(0)
     # Run all tests
-    servers, error_servers = sslyzer(hostnames, timeout=7)
+    servers, error_servers = sslyzer(hostnames, timeout=5)
 
-    if len(error_servers):
-        hostnames_error = [s['hostname'] for s in error_servers]
-        servers, error_servers = sslyzer(hostnames_error, timeout=15)
+    #if len(error_servers):
+        #hostnames_error = [s['hostname'] for s in error_servers]
+        #servers, error_servers = sslyzer(hostnames_error, timeout=15)
     # Save report to XLSX file
     if args.xlsx_file:
         filename = 'reports/' + args.xlsx_file

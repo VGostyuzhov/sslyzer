@@ -43,66 +43,106 @@ def scanServer(hostname, timeout):
         concurrent_scanner.queue_scan_command(server_info, scan_command)
     # Process scan results
     server = {'hostname': server_info.hostname, 'ip_address': server_info.ip_address, 'port': str(server_info.port),
-              'cipher_suites': {'SSLv2.0': [], 'SSLv3.0': [], 'TLSv1.0': [], 'TLSv1.1': [], 'TLSv1.2': []}, 
-              'weak_ciphers': None, 'insecure_ciphers': None,               
+              'cipher_suites': {'SSLv2.0': [], 'SSLv3.0': [], 'TLSv1.0': [], 'TLSv1.1': [], 'TLSv1.2': []},
+              'weak_ciphers': None, 'insecure_ciphers': None,
               'cert': {'trusted': None, 'mataches_hostname': None, 'not_valid_after': None,
-                       'self_signed': None, 'sign_hash_algorithm': None, 'weak_hash_algorithm': None}, 
+                       'self_signed': None, 'sign_hash_algorithm': None, 'weak_hash_algorithm': None},
               'vulners': {'poodle': None, 'crime': None, 'drown': None, 'beast': None, 'logjam': None, 'freak': None, 'downgrade': None},
               'DH_params': {'DH_common_prime': None, 'DH_weak': None, 'DH_insecure': None}
               }
     for scan_result in concurrent_scanner.get_results():
         if isinstance(scan_result, PluginRaisedExceptionScanResult):
             error_message = ''.join(scan_result.as_text())
-            sys.stdout.write(colored('{}Scan command failed: {}{}\n\n'.format(BOLD, error_message, ENDBOLD), 'red'))
-            return {'error': scan_result.as_text()}
+            sys.stdout.write(colored('{0}Scan command {1} failed:, {2}{3}\n\n'.format(BOLD, scan_result.scan_command.__class__.__name__, error_message, ENDBOLD), 'red'))
+            # return {'error': scan_result.as_text()}
             # continue
+
         # Get supported by server cipher suites
         commands = {'SSLv2.0': Sslv20ScanCommand, 'SSLv3.0': Sslv30ScanCommand, 'TLSv1.0': Tlsv10ScanCommand, 'TLSv1.1': Tlsv11ScanCommand, 'TLSv1.2': Tlsv12ScanCommand}
         for protocol, command in commands.iteritems():
             if isinstance(scan_result.scan_command, command):
-                server['cipher_suites'][protocol] = []
-                for cipher in scan_result.accepted_cipher_list:
-                    cipher_name = cipher.name.replace('TLS_', '')
-                    cipher_name = cipher_name.replace('WITH_', '')
-                    c = {'name': cipher_name, 'key_size': cipher.key_size, 'dh_info': {'Type': None, 'prime': None, 'GroupSize': None}}
-                    if cipher.dh_info is not None:
-                        c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize']}
-                        if cipher.dh_info['Type'] == 'DH':
-                            c['dh_info']['prime'] = cipher.dh_info['prime'][4:]
-                    server['cipher_suites'][protocol].append(c)
-                server[protocol] = bool(len(server['cipher_suites'][protocol]))
+                if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                    server['cipher_suites'][protocol] = ['Error']
+                    continue
+                else:
+                    server['cipher_suites'][protocol] = []
+                    for cipher in scan_result.accepted_cipher_list:
+                        cipher_name = cipher.name.replace('TLS_', '')
+                        cipher_name = cipher_name.replace('WITH_', '')
+                        c = {'name': cipher_name, 'key_size': cipher.key_size, 'dh_info': {'Type': None, 'prime': None, 'GroupSize': None}}
+                        if cipher.dh_info is not None:
+                            c['dh_info'] = {key: cipher.dh_info[key] for key in ['Type', 'GroupSize']}
+                            if cipher.dh_info['Type'] == 'DH':
+                                c['dh_info']['prime'] = cipher.dh_info['prime'][4:]
+                        server['cipher_suites'][protocol].append(c)
+                    server[protocol] = bool(len(server['cipher_suites'][protocol]))
+
         # Heartbleed
         if isinstance(scan_result.scan_command, HeartbleedScanCommand):
-            server['vulners']['heartbleed'] = scan_result.is_vulnerable_to_heartbleed
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['vulners']['heartbleed'] = 'Error'
+            else:
+                server['vulners']['heartbleed'] = scan_result.is_vulnerable_to_heartbleed
+
         # Data compression
         if isinstance(scan_result.scan_command, CompressionScanCommand):
-            server['compression'] = scan_result.compression_name
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['compression'] = 'Error'
+            else:
+                server['compression'] = scan_result.compression_name
+
         # Fallback SCSV
         if isinstance(scan_result.scan_command, FallbackScsvScanCommand):
-            server['fallback_scsv'] = scan_result.supports_fallback_scsv
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['fallback_scsv'] = 'Error'
+            else:
+                server['fallback_scsv'] = scan_result.supports_fallback_scsv
+
         #CCS Injection
         if isinstance(scan_result.scan_command, OpenSslCcsInjectionScanCommand):
-            server['vulners']['ccs_injection'] = scan_result.is_vulnerable_to_ccs_injection
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['vulners']['ccs_injection'] = 'Error'
+            else:
+                server['vulners']['ccs_injection'] = scan_result.is_vulnerable_to_ccs_injection
+
         # Get renegotiation parameters
         if isinstance(scan_result.scan_command, SessionRenegotiationScanCommand):
-            server['client_reneg'] = scan_result.accepts_client_renegotiation
-            server['secure_reneg'] = scan_result.supports_secure_renegotiation
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['client_reneg'] = 'Error'
+                server['secure_reneg'] = 'Error'
+            else:
+                server['client_reneg'] = scan_result.accepts_client_renegotiation
+                server['secure_reneg'] = scan_result.supports_secure_renegotiation
+
         # HSTS and HPKP headers
         if isinstance(scan_result.scan_command, HttpHeadersScanCommand):
-            server['hsts_header'] = bool(scan_result.hsts_header)
-            server['hpkp_header'] = bool(scan_result.hpkp_header)
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['hsts_header'] = 'Error'
+                server['hsts_header'] = 'Error'
+            else:
+                server['hsts_header'] = bool(scan_result.hsts_header)
+                server['hpkp_header'] = bool(scan_result.hpkp_header)
+
         # Get certificate parameters
         if isinstance(scan_result.scan_command, CertificateInfoScanCommand):
-            server['cert']['matches_hostname'] = scan_result.certificate_matches_hostname
-            cert = scan_result.certificate_chain[0]
-            server['cert']['not_valid_after'] = cert.not_valid_after.strftime('%d.%m.%Y')
-            subject = CertificateUtils.get_name_as_short_text(cert.subject)
-            issuer = CertificateUtils.get_name_as_short_text(cert.issuer)
-            if issuer == subject:
-                server['cert']['self_signed'] = True
+            if isinstance(scan_result, PluginRaisedExceptionScanResult):
+                server['cert']['matches_hostname'] = 'Error'
+                server['cert']['not_valid_after'] = 'Error'
+                server['cert']['self_signed'] = 'Error'
+                server['cert']['trusted'] = 'Error'
+                server['cert']['sign_hash_algorithm'] = 'Error'
+                server['cert']['weak_hash_algorithm'] = 'Error'
             else:
-                server['cert']['self_signed'] = False
-            server['cert']['trusted'] = scan_result.path_validation_result_list[0].is_certificate_trusted
-            server['cert']['sign_hash_algorithm'] = cert.signature_hash_algorithm.name
-            server['cert']['weak_hash_algorithm'] = bool(server['cert']['sign_hash_algorithm'] == 'sha1')
+                server['cert']['matches_hostname'] = scan_result.certificate_matches_hostname
+                cert = scan_result.certificate_chain[0]
+                server['cert']['not_valid_after'] = cert.not_valid_after.strftime('%d.%m.%Y')
+                subject = CertificateUtils.get_name_as_short_text(cert.subject)
+                issuer = CertificateUtils.get_name_as_short_text(cert.issuer)
+                if issuer == subject:
+                    server['cert']['self_signed'] = True
+                else:
+                    server['cert']['self_signed'] = False
+                server['cert']['trusted'] = scan_result.path_validation_result_list[0].is_certificate_trusted
+                server['cert']['sign_hash_algorithm'] = cert.signature_hash_algorithm.name
+                server['cert']['weak_hash_algorithm'] = bool(server['cert']['sign_hash_algorithm'] == 'sha1')
     return server
