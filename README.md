@@ -1,5 +1,4 @@
 # SSLyzer
-[Wiki page](https://gitlab.local/gostyuzhov/Customers/wikis/SSLyzer)
 ## Installation:
 ```
 pip install -r requirements.txt
