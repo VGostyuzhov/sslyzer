@@ -1,18 +1,20 @@
+# Third-party modules
 from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
-from styles import styles, Colors, columnWidth
 from termcolor import colored
+# Custom modules
+from styles import styles, Colors, columnWidth
 
 
-def serverConsoleOutput(server):
+
+def server_console_output(server):
     # print('Heartbleed: ' + colored((server['vulners']['heartbleed']), 'green'))
     yes_no = {False: 'No', True: 'Yes', 'Error': 'Error'}
     for protocol, ciphers in server['cipher_suites'].iteritems():
         if len(ciphers):
             print(colored(protocol, 'cyan'))
-            a = 36
-            print(colored(Colors.BOLD + Colors.UNDERLINE + '{:<36}|{:<5}|{:<5}|{:<6}|{:<6}|{:<5}|{:<5}|{:<9}|{:<9}|{:<4}|{:<13}|{:<8}|{:<9}'.format(
-                'Cipher', 'RC4', 'MD5', 'SHA1', 'DES', 'Anon', 'PFS', 'Key Size', 'GroupSize', 'DHE', 'Common Prime', 'DH Weak', 'DH Insec') + Colors.ENDBOLD, 'white'))
+            print(colored(Colors.BOLD + Colors.UNDERLINE + '{:<{}}|{:<5}|{:<5}|{:<6}|{:<6}|{:<5}|{:<5}|{:<9}|{:<9}|{:<4}|{:<13}|{:<8}|{:<9}'.format(
+                'Cipher', 36, 'RC4', 'MD5', 'SHA1', 'DES', 'Anon', 'PFS', 'Key Size', 'GroupSize', 'DHE', 'Common Prime', 'DH Weak', 'DH Insec') + Colors.ENDBOLD, 'white'))
             for cipher in ciphers:
                 if 'Error' in ciphers:
                     continue
@@ -48,7 +50,7 @@ def serverConsoleOutput(server):
     print
 
 
-def excelReport(servers, filename):
+def excel_report(servers, filename):
     try:
         wb = Workbook()
     except Exception, error:

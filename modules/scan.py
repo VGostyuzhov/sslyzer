@@ -1,9 +1,9 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
+
+# Standard modules
 import sys
-from termcolor import colored
-from sslyze.server_connectivity import ServerConnectivityInfo, ServerConnectivityError
-from sslyze.synchronous_scanner import SynchronousScanner
+# Third-party modules
 from sslyze.concurrent_scanner import ConcurrentScanner, PluginRaisedExceptionScanResult
 from sslyze.plugins.openssl_cipher_suites_plugin import Sslv20ScanCommand, Sslv30ScanCommand, Tlsv10ScanCommand, Tlsv11ScanCommand, Tlsv12ScanCommand
 from sslyze.plugins.heartbleed_plugin import HeartbleedScanCommand
@@ -14,12 +14,15 @@ from sslyze.plugins.session_renegotiation_plugin import SessionRenegotiationScan
 from sslyze.plugins.http_headers_plugin import HttpHeadersScanCommand
 from sslyze.plugins.certificate_info_plugin import CertificateInfoScanCommand
 from sslyze.plugins.utils.certificate_utils import CertificateUtils
+from sslyze.server_connectivity import ServerConnectivityInfo, ServerConnectivityError
+from sslyze.synchronous_scanner import SynchronousScanner
+from termcolor import colored
 
 BOLD = '\033[1m'
 ENDBOLD = '\033[0m'
 
 
-def scanServer(hostname, timeout):
+def scan_server(hostname, timeout):
     """Scan server for supported SSL cipher suites and vulnerabilities and return dict object"""
     # Test connectivity
     sys.stdout.write('Testing connectivity: ')
@@ -64,6 +67,7 @@ def scanServer(hostname, timeout):
             if isinstance(scan_result.scan_command, command):
                 if isinstance(scan_result, PluginRaisedExceptionScanResult):
                     server['cipher_suites'][protocol] = ['Error']
+                    server[protocol] = 'Error'
                 else:
                     server['cipher_suites'][protocol] = []
                     for cipher in scan_result.accepted_cipher_list:
