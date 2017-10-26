@@ -45,7 +45,8 @@ def scanServer(hostname, timeout):
     server = {'hostname': server_info.hostname, 'ip_address': server_info.ip_address, 'port': str(server_info.port),
               'cipher_suites': {'SSLv2.0': [], 'SSLv3.0': [], 'TLSv1.0': [], 'TLSv1.1': [], 'TLSv1.2': []},
               'weak_ciphers': None, 'insecure_ciphers': None,
-              'cert': {'trusted': None, 'mataches_hostname': None, 'not_valid_after': None,
+              'compression': None,
+              'cert': {'trusted': None, 'matches_hostname': None, 'not_valid_after': None,
                        'self_signed': None, 'sign_hash_algorithm': None, 'weak_hash_algorithm': None},
               'vulners': {'poodle': None, 'crime': None, 'drown': None, 'beast': None, 'logjam': None, 'freak': None, 'downgrade': None},
               'DH_params': {'DH_common_prime': None, 'DH_weak': None, 'DH_insecure': None}
@@ -63,7 +64,6 @@ def scanServer(hostname, timeout):
             if isinstance(scan_result.scan_command, command):
                 if isinstance(scan_result, PluginRaisedExceptionScanResult):
                     server['cipher_suites'][protocol] = ['Error']
-                    continue
                 else:
                     server['cipher_suites'][protocol] = []
                     for cipher in scan_result.accepted_cipher_list:

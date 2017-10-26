@@ -14,6 +14,8 @@ def serverConsoleOutput(server):
             print(colored(Colors.BOLD + Colors.UNDERLINE + '{:<36}|{:<5}|{:<5}|{:<6}|{:<6}|{:<5}|{:<5}|{:<9}|{:<9}|{:<4}|{:<13}|{:<8}|{:<9}'.format(
                 'Cipher', 'RC4', 'MD5', 'SHA1', 'DES', 'Anon', 'PFS', 'Key Size', 'GroupSize', 'DHE', 'Common Prime', 'DH Weak', 'DH Insec') + Colors.ENDBOLD, 'white'))
             for cipher in ciphers:
+                if 'Error' in ciphers:
+                    continue
                 print('{:<36}|{:<5}|{:<5}|{:<6}|{:<6}|{:<5}|{:<5}|{:<9}|{:<9}|{:<4}|{:<13}|{:<8}|{:<9}'.format(
                     cipher['name'], yes_no[cipher['RC4']], yes_no[cipher['MD5']],
                     yes_no[cipher['SHA1']], yes_no[cipher['DES']], yes_no[cipher['anon']],

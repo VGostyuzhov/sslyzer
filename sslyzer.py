@@ -16,7 +16,7 @@ COMMON_PRIMES_FILE = 'data/common_primes.txt'
 def enrich_ciphers(server, common_primes):
     """ """
     for protocol, ciphers in server['cipher_suites'].iteritems():
-        if 'Error' in protocol:
+        if 'Error' in ciphers:
             continue
         else:
             for cipher in ciphers:
@@ -47,6 +47,8 @@ def check_Beast(server):
     """"""
     protocols = {key: server['cipher_suites'][key] for key in ['SSLv3.0', 'TLSv1.0']}
     for protocol, ciphers in protocols.iteritems():
+        if 'Error' in ciphers:
+            continue
         for cipher in ciphers:
             if 'CBC' in cipher['name']:
                 return True
@@ -59,6 +61,8 @@ def check_Freak(server):
                           'EXP1024-RC4-MD5', 'EXP-EDH-RSA-DES-CBC-SHA', 'EXP-DH-RSA-DES-CBC-SHA',
                           'EXP-DES-CBC-SHA', 'EXP-RC2-CBC-MD5', 'EXP-RC4-MD5']
     for protocol, ciphers in server['cipher_suites'].iteritems():
+        if 'Error' in ciphers:
+            continue
         for cipher in ciphers:
             if cipher in export_rsa_ciphers:
                 return True
@@ -68,6 +72,8 @@ def check_Freak(server):
 def getCiphersParam(protocols, key):
     """"""
     for protocol, ciphers in protocols.iteritems():
+        if 'Error' in ciphers:
+            continue
         key_list = [cipher[key] for cipher in ciphers]
         if True in key_list:
             return True
