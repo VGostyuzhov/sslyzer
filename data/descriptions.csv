@@ -1,0 +1,26 @@
+Heartbleed;Heartbleed vulnerability\nThe Heartbleed bug allows anyone on the Internet to read the memory of the systems protected by the vulnerable versions of the OpenSSL software (CVE-2014-0160).;Critical
+Crime;CRIME vulnerability\nCompression Ratio Info-leak Made Easy is a security exploit against secret web cookies over connections using the HTTPS and SPDY protocols that also use data compression (CVE-2012-4929).;Critical
+Downgrade;Downgrade attack\nA downgrade attack allows for an attacker to negotiate a lower version of TLS between the client and server (CVE-2014-3511).;Medium
+Poodle;POODLE attack\nThis vulnerability affects SSL 3 and CBC encryption mode in TLS and it allows a MITM attacker to decrypt the contents of the encrypted communication (CVE-2014-3511).;Critical
+RC4;Vulnerabilities in RC4\nMultiple vulnerabilities have been found in SSLs RC4 implementation.;Medium
+Beast;BEAST vulnerability\nBrowser Exploit Against SSL/TLS (BEAST) is an exploit that leverages weaknesses in CBC and allows for an attacker to perform MITM attack to decrypt and obtain authentication tokens (CVE-2011-3389).;Medium
+CCS_Injection;CCS Injection\nChangeCipherSpec processing has a serious vulnerability that allows malicious intermediate nodes to intercept encrypted data and decrypt them while forcing SSL clients to use weak keys (CVE-2014-0224).;Medium
+Drown;DROWN vulnerability\nIt allows attackers to break the encryption and read or steal sensitive communications, including passwords, credit card numbers, trade secrets, or financial data (CVE-2016-0800).;Medium
+Freak;FREAK attack\nIt allows an attacker to intercept HTTPS connections between vulnerable clients and servers and force them to use weakened encryption, which the attacker can break to steal or manipulate sensitive data (CVE-2015-0204).;Medium
+Logjam;Logjam attack\nIt allows a man-in-the-middle attacker to downgrade vulnerable TLS connections to 512-bit export-grade cryptography. This allows the attacker to read and modify any data passed over the connection.;Medium
+DH_common_primes;Common primes are used in Diffie-Hellman key exchange algorithm.;N/A
+DH_weak;Weak parameters are used for Diffie-Hellman key exchange algorithm.;Low
+DH_insecure;Insecure parameters are used for Diffie-Hellman key exchange algorithm.;Medium
+HSTS;Strict transport security is not supported.;Low
+SecureRenegotiation;Secure renegotiation is not supported.;Low
+WeakCiphers;Weak ciphers are used.;Medium
+InsecureCiphers;Insecure ciphers are used.;Critical
+PFS;Forward Secrecy is NOT supported\nForward secrecy is a security feature which ensures that a session key derived from a set of public and private keys will not be compromised if one of the private keys is compromised.;Low
+SSLv2.0;SSLv2.0 is supported.;High
+SSLv3.0;SSLv3.0 is supported.;High
+TLSv1.0;TLSv1.0 is supported.;Medium
+TLSv1.2;TLSv1.2 is NOT supported\nTLSv1.2 is the latest and most secure version of SSL/TLS protocol.;Low
+SelfSigned;Self-signed SSL certificate is used.;N/A
+Expired;SSL certificate with expired date is used.;N/A
+Untrusted;Certificate is not verified by trusted certification authorities.;N/A
+weak_hash_algo;Weak SHA1 hash algorithm is used in SSL certificate.;Low
