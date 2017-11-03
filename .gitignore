@@ -1,0 +1,11 @@
+*
+!.gitignore
+!sslyzer.py
+!sslyze/
+!sslyze/**
+!modules/*.py
+!data/
+!data/*.csv
+!reports/
+!README.md
+!requirements.txt
