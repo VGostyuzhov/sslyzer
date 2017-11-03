@@ -149,7 +149,6 @@ class Server(object):
         # Supported protocols and cipher suites
         tls_commands = {'SSLv2.0': Sslv20ScanCommand, 'SSLv3.0': Sslv30ScanCommand, 'TLSv1.0': Tlsv10ScanCommand,
                     'TLSv1.1': Tlsv11ScanCommand, 'TLSv1.2': Tlsv12ScanCommand}
-
         # Run all scan commands
         for scan_command in scan_commands:
             scanner.queue_scan_command(self.server_info, scan_command)
@@ -220,7 +219,7 @@ class Server(object):
                 cert = Certificate()
                 cert_data = scan_result.certificate_chain[0]
                 cert.matches_hostname = scan_result.certificate_matches_hostname
-
+                # Get certificate 'Valid to' date and check if expired
                 cert.valid_to = cert_data.not_valid_after.strftime('%d.%m.%Y')                
                 today = datetime.today()
                 if cert_data.not_valid_after <= today:
