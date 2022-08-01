@@ -18,7 +18,7 @@ from modules.styles import Colors
 
 def print_single_line(string):
     sys.stdout.write(string)
-    sys.stdout.flush()    
+    sys.stdout.flush()
 
 
 def sslyzer(hostnames, timeout=5):
